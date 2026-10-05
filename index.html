@@ -1,7 +1,48 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111827"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="style.css"><title>School Bus</title></head><body><main>
-<header><div class="eyebrow">LPP • SCHOOL COMMUTE</div><h1>School Bus</h1><p>Find tomorrow's scheduled buses from Polje to Vegova.</p></header>
-<section class="card"><label for="arrival">Arrive at Vegova by</label><div class="controls"><input id="arrival" type="time" value="07:00"><button id="find">Find buses</button></div><small>07:00 is the default. Change it for later school starts.</small></section>
-<section class="card settings"><b>Your setup</b><div><span>🚌 27</span><span>Konzorcij</span></div><div><span>🚌 11</span><span>Drama</span></div><div><span>🚌 25</span><span>Bavarski dvor</span></div><div><span>Home → Polje</span><span>8 min</span></div><div><span>Wake before bus</span><span>20 min</span></div><div><span>Backup alarm</span><span>15 min before wake</span></div></section>
-<div id="status" class="status">Ready.</div><section id="results"></section>
-<section class="card note"><b>Morning check</b><p>This uses the scheduled LPP timetable. Since you check again in the morning, use Google Maps/LPP then for delays or cancellations.</p></section>
-</main><script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+  <title>School Bus</title>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div>
+        <h1>School Bus</h1>
+        <p class="sub">Polje → Vegova</p>
+      </div>
+      <button id="themeBtn" class="iconBtn" aria-label="Toggle light/dark mode">☀️</button>
+    </header>
+
+    <section class="card hero">
+      <label for="arrival">I need to be there by</label>
+      <div class="timeRow">
+        <input id="arrival" type="time" value="07:00">
+        <button id="findBtn">Find buses</button>
+      </div>
+      <div id="dateText" class="muted"></div>
+    </section>
+
+    <section id="status" class="status">Loading timetable…</section>
+    <section id="results" class="results"></section>
+
+    <section class="card setup">
+      <h2>Your setup</h2>
+      <div>🚌 <b>27</b> → Konzorcij <span>preferred</span></div>
+      <div>🚌 <b>11</b> → Drama</div>
+      <div>🚌 <b>25</b> → Bavarski dvor</div>
+      <div>🏠 Home → Polje: <b>8 min</b></div>
+      <div>😴 Wake before bus: <b>20 min</b></div>
+      <div>⏰ Backup alarm: <b>15 min</b> before wake</div>
+    </section>
+
+    <p class="foot">Scheduled LPP timetable. Check Google Maps/LPP again in the morning for delays or cancellations.</p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

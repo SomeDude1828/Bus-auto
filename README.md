@@ -1,18 +1,23 @@
-# Bus-auto
+# School Bus
 
-Small PWA for the school commute from Polje to Vegova.
+Tiny PWA for planning the next school morning from **Polje**.
 
-## Settings
-- Arrival default: 07:00
-- Lines: 27 -> Konzorcij; 11 -> Drama; 25 -> Bavarski dvor
-- Home -> Polje: 8 min
-- Wake: 20 min before bus
-- Leave home: 8 min before bus
+- 27 → Konzorcij (preferred)
+- 11 → Drama
+- 25 → Bavarski dvor
+- Home → Polje: 8 min
+- Wake: 20 min before the bus
 - Backup alarm: 15 min before wake
+- Default target: 07:00
 
-## GitHub Pages
-Upload all files to the repository root, then Settings -> Pages -> Deploy from a branch -> `main` / `/ (root)`.
-Open the Pages URL in Chrome on Android and choose Add to home screen / Install app.
+## GitHub Pages setup
 
-The app uses LPP's public GTFS feed: https://data.lpp.si/api/gtfs/feed.zip
-It uses scheduled data only; check live conditions in the morning as intended.
+1. Put these files in the root of the `main` branch.
+2. Settings → Pages → Deploy from a branch → `main` → `/ (root)`.
+3. Settings → Actions → General → Workflow permissions: **Read and write permissions**.
+4. Run **Actions → Update LPP timetable → Run workflow** once manually. The workflow also runs daily at 17:00 UTC.
+5. Open the Pages URL on Android and use Chrome → Add to home screen / Install app.
+
+The browser does **not** download the LPP GTFS feed directly. GitHub Actions downloads the official scheduled feed and creates `data.json`, which avoids browser CORS problems.
+
+This uses scheduled timetable data, not live delays/cancellations. Check LPP/Google Maps again in the morning.

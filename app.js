@@ -1,11 +1,78 @@
-const FEED='https://data.lpp.si/api/gtfs/feed.zip';
-const CFG={origin:'Polje',routes:[['27','Konzorcij'],['11','Drama'],['25','Bavarski dvor']],homeToStop:8,wakeBeforeBus:20,backupBeforeWake:15};
-const $=id=>document.getElementById(id), arrival=$('arrival'), find=$('find'), status=$('status'), results=$('results');
-const toMin=t=>{let p=t.split(':').map(Number);return p[0]*60+p[1]}; const fmt=n=>{n=((n%1440)+1440)%1440;return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
-function parseCSV(s){let a=[],r=[],c='',q=false;for(let i=0;i<s.length;i++){let x=s[i],y=s[i+1];if(q){if(x==='"'&&y==='"'){c+='"';i++}else if(x==='"')q=false;else c+=x}else if(x==='"')q=true;else if(x===','){r.push(c);c=''}else if(x==='\n'){r.push(c);a.push(r);r=[];c=''}else if(x!=='\r')c+=x}if(c||r.length){r.push(c);a.push(r)}let h=a.shift().map(x=>x.trim());return a.filter(r=>r.length).map(r=>Object.fromEntries(h.map((k,i)=>[k,(r[i]??'').trim()])))}
-async function getFeed(){let res=await fetch(FEED,{cache:'no-store'});if(!res.ok)throw Error('LPP feed returned HTTP '+res.status);let zip=new Uint8Array(await res.arrayBuffer());let files=fflate.unzipSync(zip), out={};for(let n of ['routes.txt','stops.txt','trips.txt','stop_times.txt','calendar.txt','calendar_dates.txt']){if(files[n])out[n.slice(0,-4)]=parseCSV(new TextDecoder().decode(files[n]))}return out}
-function activeServices(g,date){let ymd=date.getFullYear()+String(date.getMonth()+1).padStart(2,'0')+String(date.getDate()).padStart(2,'0'),dow=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][date.getDay()],s=new Set((g.calendar||[]).filter(x=>x.start_date<=ymd&&ymd<=x.end_date&&x[dow]==='1').map(x=>x.service_id));for(let x of g.calendar_dates||[])if(x.date===ymd)(x.exception_type==='1'?s.add(x.service_id):s.delete(x.service_id));return s}
-async function calculate(target){let g=await getFeed(),d=new Date();d.setDate(d.getDate()+1);d.setHours(0,0,0,0);let active=activeServices(g,d),routes=new Map(g.routes.map(x=>[x.route_id,x])),trips=g.trips.filter(t=>active.has(t.service_id)&&CFG.routes.some(x=>x[0]===routes.get(t.route_id)?.route_short_name));let tripIds=new Set(trips.map(t=>t.trip_id));let originIds=new Set(g.stops.filter(s=>s.stop_name?.toLowerCase().includes(CFG.origin.toLowerCase())).map(s=>s.stop_id));let dest={};for(let [line,name] of CFG.routes)dest[line]=new Set(g.stops.filter(s=>s.stop_name?.toLowerCase()===name.toLowerCase()).map(s=>s.stop_id));let by=new Map();for(let st of g.stop_times||[])if(tripIds.has(st.trip_id)){if(!by.has(st.trip_id))by.set(st.trip_id,[]);by.get(st.trip_id).push(st)}let out=[];for(let [line,name] of CFG.routes){let best=null;for(let t of trips.filter(x=>routes.get(x.route_id)?.route_short_name===line)){let ss=(by.get(t.trip_id)||[]).sort((a,b)=>+a.stop_sequence-+b.stop_sequence),oi=ss.findIndex(x=>originIds.has(x.stop_id));if(oi<0)continue;let di=ss.findIndex((x,i)=>i>oi&&dest[line].has(x.stop_id));if(di<0)continue;let dep=toMin(ss[oi].departure_time),arr=toMin(ss[di].arrival_time);if(dep>target||arr>target)continue;let cand={line,name,dep,arr};if(!best||arr>best.arr||(arr===best.arr&&dep>best.dep))best=cand}if(best)out.push(best)}return out}
-function render(xs,target){if(!xs.length){results.innerHTML='<section class="card"><b>No suitable scheduled trip found.</b><p>Try a later arrival time or check the timetable manually.</p></section>';return}results.innerHTML=xs.map((x,i)=>{let wake=x.dep-CFG.wakeBeforeBus,leave=x.dep-CFG.homeToStop,backup=wake-CFG.backupBeforeWake,margin=target-x.arr;return `<article class="result good"><div class="line">${i===0?'BEST / PREFERRED':i===1?'ALTERNATIVE':'RARE ALTERNATIVE'}</div><h2>🚌 ${x.line} → ${x.name}</h2><div class="times"><div class="timebox"><span>Bus at Polje</span><b>${fmt(x.dep)}</b></div><div class="timebox"><span>Arrive at ${x.name}</span><b>${fmt(x.arr)}</b></div><div class="timebox"><span>Wake up</span><b>${fmt(wake)}</b></div><div class="timebox"><span>Leave home</span><b>${fmt(leave)}</b></div><div class="timebox"><span>Backup alarm</span><b>${fmt(backup)}</b></div><div class="timebox"><span>Buffer</span><b>${margin} min</b></div></div></article>`}).join('')}
-async function run(){find.disabled=true;status.textContent='Loading the current LPP timetable…';results.innerHTML='';try{let t=toMin(arrival.value||'07:00'),x=await calculate(t);status.textContent=`Tomorrow • ${x.length} suitable option${x.length===1?'':'s'} found`;render(x,t)}catch(e){console.error(e);status.textContent='Could not load the LPP timetable';results.innerHTML='<section class="card"><b>Could not load LPP data.</b><p>Make sure you are online. If it keeps failing, the LPP feed may be temporarily unavailable or blocking browser requests.</p></section>'}finally{find.disabled=false}}
-find.addEventListener('click',run);run();
+const ROUTES = [
+  { line: "27", dest: "Konzorcij", preferred: true },
+  { line: "11", dest: "Drama", preferred: false },
+  { line: "25", dest: "Bavarski dvor", preferred: false }
+];
+const WAKE_BEFORE = 20;
+const HOME_TO_STOP = 8;
+const BACKUP_BEFORE_WAKE = 15;
+
+const $ = id => document.getElementById(id);
+let schedule = null;
+
+function tomorrowKey() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function dateLabel(key) {
+  return new Intl.DateTimeFormat(undefined,{weekday:"short",day:"numeric",month:"short"}).format(new Date(key+"T12:00:00"));
+}
+function toMin(s) { const [h,m]=s.split(":").map(Number); return h*60+m; }
+function fromMin(n) { n=((n%1440)+1440)%1440; return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`; }
+function esc(s) { const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+
+async function load() {
+  try {
+    const r=await fetch(`data.json?${Date.now()}`, {cache:"no-store"});
+    if(!r.ok) throw new Error(`data.json ${r.status}`);
+    schedule=await r.json();
+    $("status").textContent=`Timetable updated ${schedule.generated_at ? new Date(schedule.generated_at).toLocaleString() : ""}`;
+  } catch(e) {
+    $("status").textContent="No timetable data yet. GitHub Actions needs to run once — see the README.";
+  }
+  find();
+}
+
+function find() {
+  const key=tomorrowKey();
+  $("dateText").textContent=`Checking ${dateLabel(key)} · tomorrow`;
+  const target=toMin($("arrival").value || "07:00");
+  const day=schedule?.days?.[key];
+  const results=[];
+  for(const r of ROUTES) {
+    const trips=(day?.[r.line]||[]).filter(x=>toMin(x.arr)<=target);
+    // Latest arrival is the most useful: it minimizes waking/waiting early.
+    trips.sort((a,b)=>toMin(b.arr)-toMin(a.arr) || toMin(b.dep)-toMin(a.dep));
+    if(trips[0]) results.push({...r, ...trips[0]});
+  }
+  results.sort((a,b)=>toMin(a.dep)-toMin(b.dep));
+  if(!results.length) {
+    $("results").innerHTML=`<div class="card">No scheduled bus in the downloaded timetable arrives by <b>${esc($("arrival").value)}</b> tomorrow.</div>`;
+    return;
+  }
+  $("results").innerHTML=results.map(r=>{
+    const dep=toMin(r.dep), arr=toMin(r.arr), wake=dep-WAKE_BEFORE, backup=wake-BACKUP_BEFORE, leave=dep-HOME_TO_STOP;
+    const buffer=target-arr;
+    return `<article class="result ${r.preferred?"best":""}">
+      <div class="resultTop"><div class="route">🚌 ${esc(r.line)} → ${esc(r.dest)}</div>${r.preferred?'<div class="tag">PREFERRED</div>':''}</div>
+      <div class="dest">Arrives at ${esc(r.dest)} at <b>${esc(r.arr)}</b> · ${buffer} min before target</div>
+      <div class="grid">
+        <div class="stat"><small>Bus at Polje</small><b>${esc(r.dep)}</b></div>
+        <div class="stat"><small>Wake up</small><b>${fromMin(wake)}</b></div>
+        <div class="stat"><small>Leave home</small><b>${fromMin(leave)}</b></div>
+        <div class="stat"><small>Backup alarm</small><b>${fromMin(backup)}</b></div>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+$("findBtn").addEventListener("click",find);
+$("arrival").addEventListener("change",find);
+$("themeBtn").addEventListener("click",()=>{
+  document.documentElement.classList.toggle("light");
+  localStorage.setItem("theme",document.documentElement.classList.contains("light")?"light":"dark");
+});
+if(localStorage.getItem("theme")==="light") document.documentElement.classList.add("light");
+load();

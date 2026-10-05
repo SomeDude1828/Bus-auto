@@ -1,1 +1,9 @@
-{"name":"School Bus","short_name":"School Bus","start_url":"./","display":"standalone","background_color":"#f3f4f6","theme_color":"#111827","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "name": "School Bus",
+  "short_name": "School Bus",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
