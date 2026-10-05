@@ -31,7 +31,7 @@ def main():
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         routes=read(z,'routes.txt'); stops=read(z,'stops.txt'); trips=read(z,'trips.txt'); sts=read(z,'stop_times.txt'); cal=read(z,'calendar.txt') if 'calendar.txt' in z.namelist() else []; exc=read(z,'calendar_dates.txt') if 'calendar_dates.txt' in z.namelist() else []
     route_ids={r['route_id']:r['route_short_name'] for r in routes if r.get('route_short_name') in ROUTES}
-    stop_ids={r: set() for r in [ORIGIN]+list(ROUTES.values())}
+    stop_ids={r.casefold(): set() for r in [ORIGIN]+list(ROUTES.values())}
     for s in stops:
         n=s.get('stop_name','').strip().casefold()
         if n in stop_ids: stop_ids[n].add(s['stop_id'])
@@ -48,7 +48,7 @@ def main():
         if not origins: continue
         for line,destname in ROUTES.items():
             if route_ids[t['route_id']]!=line: continue
-            dests=[x for x in seq if x['stop_id'] in stop_ids[destname]]
+            dests=[x for x in seq if x['stop_id'] in stop_ids[destname.casefold()]]
             for o in origins:
                 after=[d for d in dests if int(float(d['stop_sequence']))>int(float(o['stop_sequence']))]
                 if not after: continue
