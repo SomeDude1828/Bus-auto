@@ -1,12 +1,9 @@
 name: Update LPP timetable
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [main]
   schedule:
-    # 17:00 UTC = 19:00 in Slovenia during summer time, before evening planning.
-    - cron: '0 17 * * *'
+    - cron: "0 17 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,14 +11,32 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Build timetable data
-        run: python scripts/build_data.py
-      - name: Commit updated data
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pull latest main
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin main
+
+      - name: Build timetable data
+        run: |
+          python scripts/build_data.py
+
+      - name: Commit timetable
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add data.json
-          git diff --cached --quiet || git commit -m 'Update LPP timetable'
-          git push
+
+          if git diff --cached --quiet; then
+            echo "No timetable changes."
+          else
+            git commit -m "Update LPP timetable"
+            git pull --rebase origin main
+            git push origin main
+          fi
